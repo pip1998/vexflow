@@ -436,7 +436,7 @@ Vex.Flow.Measure.Note = function(object) {
   this.lyric = (typeof object.lyric == "object" && object.lyric)
              ? {text: object.lyric.text}
              : null;
-
+  this.tag = object.tag;
   this.type = "note";
 }
 

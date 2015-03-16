@@ -23,6 +23,8 @@ Vex.Flow.Backend.MusicXML = function() {
   //  object where keys are names of child elements ->
   //    data representing the attribute
   this.attributes = new Array();
+
+  this.tagInt = 0;
 }
 
 Vex.Flow.Backend.MusicXML.appearsValid = function(data) {
@@ -181,6 +183,8 @@ Vex.Flow.Backend.MusicXML.prototype.getMeasure = function(m) {
     for (var i = 0; i < noteElems.length; i++) {
       // FIXME: Chord support
       var noteObj = this.parseNote(noteElems[i], attrs);
+      noteObj.tag = this.tagInt++;
+
       if (noteObj.grace) continue; // grace note requires VexFlow support
       var voiceNum = 0;
       if (typeof noteObj.voice == "number") {

@@ -35,6 +35,10 @@ Vex.Flow.DocumentFormatter.prototype.init = function(document) {
   //  this.minMeasureHeights[m][0] is space above measure
   //  this.minMeasureHeights[m][s+1] is minimum height of stave s
   this.minMeasureHeights = [];
+
+  this.flowNotes = [];
+  this.flowMap = [];
+
 }
 
 /**
@@ -90,6 +94,7 @@ Vex.Flow.DocumentFormatter.prototype.getStaveY = function(m, s) {
  */
 Vex.Flow.DocumentFormatter.prototype.createVexflowStave = function(s, x,y,w) {
   var vfStave = new Vex.Flow.Stave(x, y, w);
+
   s.modifiers.forEach(function(mod) {
     switch (mod.type) {
       case "clef": vfStave.addClef(mod.clef); break;
@@ -159,6 +164,9 @@ Vex.Flow.DocumentFormatter.prototype.getVexflowVoice =function(voice, staves){
   for (var i = 0; i < voice.notes.length; i++) {
     var note = voice.notes[i];
     var vfNote = this.getVexflowNote(voice.notes[i], {clef: clef});
+    this.flowNotes.push(vfNote);
+    var key = "tag_" + vfNote.tag;
+    this.flowMap[key] = vfNote;
     if (note.beam == "begin") beamedNotes = [vfNote];
     else if (note.beam && beamedNotes) {
       beamedNotes.push(vfNote);
@@ -230,8 +238,59 @@ Vex.Flow.DocumentFormatter.prototype.getVexflowNote = function(note, options) {
     });
   var numDots = Vex.Flow.parseNoteDurationString(note.duration).dots;
   for (var i = 0; i < numDots; i++) vfNote.addDotToAll();
+    vfNote.tag = note.tag;
+
   return vfNote;
 }
+
+// Vex.Flow.DocumentFormatter.prototype.colorNote = function() {
+//   this.flowNotes.forEach(function(vfNote)
+//     {
+//       if (!vfNote.context) return;
+//       if (!vfNote.stave) return;
+//       if (vfNote.ys.length === 0) return;
+
+//       vfNote.setKeyStyle(0, {shadowBlur:15, shadowColor:'blue', fillStyle:'blue'});
+//       vfNote.draw();
+//     });
+// }
+
+
+Vex.Flow.DocumentFormatter.prototype.colorNote = function() {
+  var count = this.flowNotes.length;
+  for (var i = this.flowNotes.length - 1; i >= 0; i--) {
+        vfNote = this.flowNotes[i];
+
+      if (!vfNote.context) break;
+      if (!vfNote.stave) break;
+      if (vfNote.ys.length === 0) break;
+
+    vfNote.setKeyStyle(0, {shadowBlur:15, shadowColor:'blue', fillStyle:'blue'});
+    vfNote.draw();
+  };
+}
+
+
+Vex.Flow.DocumentFormatter.prototype.colorNoteAt = function(key) {
+  var vfNote = this.flowMap[key];
+  if (!vfNote) {return;};
+  if (!vfNote.context) return;
+  if (!vfNote.stave) return;
+  if (vfNote.ys.length === 0) return;
+
+try
+{
+  vfNote.setKeyStyle(0, {shadowBlur:15, shadowColor:'blue', fillStyle:'blue'});
+  vfNote.draw();
+
+}catch(err)
+{
+
+}
+
+
+}
+
 
 Vex.Flow.DocumentFormatter.prototype.getMinMeasureWidth = function(m) {
   if (! (m in this.minMeasureWidths)) {
@@ -319,7 +378,6 @@ Vex.Flow.DocumentFormatter.prototype.drawPart =
   function(part, vfStaves, context) {
   var staves = part.getStaves();
   var voices = part.getVoices();
-
   vfStaves.forEach(function(stave) { stave.setContext(context).draw(); });
 
   var allVfObjects = new Array();
@@ -466,7 +524,7 @@ Vex.Flow.DocumentFormatter.Liquid.prototype.getBlock = function(b) {
     if (startMeasure == 0 && ! s.getModifier("time")) {
       if (typeof s.time_signature == "string")
         s.addModifier({type: "time", time: s.time_signature,automatic:true});
-      else if (typeof s.time == "object" && ! s.time.soft)
+      else if (typeof s.time == "object"/** && ! s.time.soft**/)
         s.addModifier(Vex.Merge({type: "time", automatic: true}, s.time));
     }
   });
@@ -649,3 +707,5 @@ Vex.Flow.DocumentFormatter.Liquid.prototype.draw = function(elem, options) {
     b++;
   }
 }
+
+
