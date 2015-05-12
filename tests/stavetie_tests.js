@@ -24,7 +24,7 @@ Vex.Flow.Test.StaveTie.tieNotes = function(notes, indices, stave, ctx) {
 
   var tie = new Vex.Flow.StaveTie({
     first_note: notes[0],
-    last_note: notes[1],
+    last_note: notes[2],
     first_indices: indices,
     last_indices: indices,
   });

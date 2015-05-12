@@ -10,7 +10,7 @@ Vex.Flow.Test.Document.Start = function() {
   Vex.Flow.Test.runTest("Auto-generated Measure Test",
                         Vex.Flow.Test.Document.measure);
   Vex.Flow.Test.runTest("Basic JSON IR Test", Vex.Flow.Test.Document.jsonSimple);
-  Vex.Flow.Test.runTest("Complex JSON IR Test", Vex.Flow.Test.Document.jsonComplex);
+  Vex.Flow.Test.runRaphaelTest("Complex JSON IR Test", Vex.Flow.Test.Document.jsonComplex);
   Vex.Flow.Test.runTest("Basic MusicXML Test", Vex.Flow.Test.Document.xmlSimple);
   Vex.Flow.Test.runTest("MusicXML Document Test", Vex.Flow.Test.Document.xmlDoc);
 };
@@ -117,11 +117,11 @@ Vex.Flow.Test.Document.jsonSimple = function(options, contextBuilder) {
 Vex.Flow.Test.Document.jsonComplex = function(options, contextBuilder) {
   expect(4);
   var jsonDoc = {type: "document", measures: [
-   {type: "measure", time: {num_beats: 4, beat_value: 4},
+   {type: "measure", time: {num_beats: 3, beat_value: 4},
     parts: [
      {type: "part", time: {num_beats: 4, beat_value: 4},
       staves: [
-       {type: "stave", time: {num_beats: 4, beat_value: 4}, clef: "treble"},
+       {type: "stave", time: {num_beats: 3, beat_value: 4}, clef: "treble"},
        {type: "stave", time: {num_beats: 4, beat_value: 4}, clef: "bass"}
       ],
       voices: [
@@ -161,8 +161,11 @@ Vex.Flow.Test.Document.jsonComplex = function(options, contextBuilder) {
   ok(measure instanceof Vex.Flow.Measure, "created measure");
 
   var ctx = new contextBuilder(options.canvas_sel, 300, 220);
-  doc.getFormatter().setWidth(300).drawBlock(0, ctx);
+  var formatters = doc.getFormatter();
+  formatters.setWidth(300).drawBlock(0, ctx);
   ok(true, "drew document");
+  formatters.colorNote('blue');
+
 }
 
 Vex.Flow.Test.Document.xmlSimple = function(options, contextBuilder) {
@@ -202,15 +205,24 @@ Vex.Flow.Test.Document.xmlSimple = function(options, contextBuilder) {
         <duration>4</duration>\
         <type>whole</type>\
       </note>\
+      <direction>\
+        <direction-type>\
+        <words default-x="23" default-y="7" justify="left" valign="middle" font-family="SimHei" font-style="normal" font-size="10.5723" font-weight="normal">3</words>\
+        </direction-type>\
+        <voice>1</voice>\
+        <staff>1</staff>\
+      </direction>\
     </measure>\
   </part>\
 </score-partwise>';
-  var doc = new Vex.Flow.Document(docString);
+  var doc = new Vex.Flow.Document(docString, null, {start:0, length:1});
   ok(true, "created document");
 
   var ctx = new contextBuilder(options.canvas_sel, 300, 120);
-  doc.getFormatter().setWidth(300).drawBlock(0, ctx);
+  var formatters = doc.getFormatter();
+  formatters.setWidth(300).drawBlock(0, ctx);
   ok(true, "drew document");
+  formatters.colorNote();
 }
 Vex.Flow.Test.Document.Fetch = function(uri) {
   var req = new XMLHttpRequest();

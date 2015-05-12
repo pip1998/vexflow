@@ -24,6 +24,16 @@ Vex.Flow.Measure = function(object) {
       this.parts[i] = new Vex.Flow.Measure.Part(object.parts[i]);
   }
 
+  if (object.beat_unit && object.per_minute && measure_tempo) {
+    this.beat_unit = object.beat_unit;
+    this.per_minute = object.per_minute;
+    this.measure_tempo = object.measure_tempo;
+  }else{
+    this.beat_unit = 4;
+    this.per_minute = 120;
+    this.measure_tempo = 120;
+
+  }
   this.type = "measure";
 }
 
@@ -344,6 +354,15 @@ Vex.Flow.Measure.Stave.prototype.addModifier = function(modifier) {
       newModifier.num_beats = modifier.num_beats;
       newModifier.beat_value = modifier.beat_value;
       break;
+    case "tempo":
+      if (!modifier.tempo)
+        throw new Vex.RERR("InvalidIRError",
+                    "Time modifier requires nonzero tempo");
+      newModifier.tempo = modifier.tempo;
+      newModifier.duration = modifier.tempo.duration;
+      newModifier.dots = modifier.tempo.dots;
+      newModifier.bpm = modifier.tempo.bpm;
+      break;
     default:
       throw new Vex.RERR("InvalidIRError", "Modifier not recognized");
   }
@@ -437,6 +456,7 @@ Vex.Flow.Measure.Note = function(object) {
              ? {text: object.lyric.text}
              : null;
   this.tag = object.tag;
+  this.fingering = object.fingering;
   this.type = "note";
 }
 

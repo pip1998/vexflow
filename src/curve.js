@@ -123,6 +123,7 @@ Vex.Flow.Curve = (function() {
         last_x = last_note.getTieLeftX();
         stem_direction = last_note.getStemDirection();
         last_y = last_note.getStemExtents()[end_metric];
+        first_y = last_y;
       } else {
         last_x = first_note.getStave().getTieEndX();
         last_y = first_note.getStemExtents()[end_metric];

@@ -17,6 +17,12 @@ Vex.Flow.DocumentFormatter.prototype.init = function(document) {
   if (typeof document != "object")
     throw new Vex.RERR("ArgumentError",
       "new Vex.Flow.DocumentFormatter() requires Document object argument");
+    this.zoom = 0.8;
+  this.scale = 1.0;
+  if (typeof window.devicePixelRatio == "number"
+      && window.devicePixelRatio > 1)
+    this.scale = Math.floor(window.devicePixelRatio);
+
   this.document = document;
 
   // Groups of measures are contained in blocks (which could correspond to a
@@ -106,6 +112,9 @@ Vex.Flow.DocumentFormatter.prototype.createVexflowStave = function(s, x,y,w) {
                       + mod.beat_value.toString();
         vfStave.addTimeSignature(time_sig);
         break;
+      case "tempo":
+        vfStave.setTempo(s.tempo);
+        break;
     }
   });
   if (typeof s.clef == "string") vfStave.clef = s.clef;
@@ -178,7 +187,8 @@ Vex.Flow.DocumentFormatter.prototype.getVexflowVoice =function(voice, staves){
     if (note.tie == "end" || note.tie == "continue")
       // TODO: Tie only the correct indices
       vexflowObjects.push(new Vex.Flow.StaveTie({
-        first_note: tiedNote, last_note: vfNote
+        first_note: tiedNote, last_note: vfNote, first_indices: [2],
+    last_indices: [2]
       }));
     if (note.tie == "begin" || note.tie == "continue") tiedNote = vfNote;
     if (note.tuplet) {
@@ -239,7 +249,13 @@ Vex.Flow.DocumentFormatter.prototype.getVexflowNote = function(note, options) {
   var numDots = Vex.Flow.parseNoteDurationString(note.duration).dots;
   for (var i = 0; i < numDots; i++) vfNote.addDotToAll();
     vfNote.tag = note.tag;
+  vfNote.prefingering = note.fingering;
 
+            // document.write(JSON.stringify(note));
+  // vfNote.addAnnotation(0, new Vex.Flow.Annotation("1").setJustification(1).setVerticalJustification(1));
+  // if (note.fingering != 0 && !note.rest) {
+  //     vfNote.addModifier(0, new Vex.Flow.Annotation(note.fingering).setJustification(2).setVerticalJustification(1));
+  // };
   return vfNote;
 }
 
@@ -265,7 +281,7 @@ Vex.Flow.DocumentFormatter.prototype.colorNote = function() {
       if (!vfNote.stave) break;
       if (vfNote.ys.length === 0) break;
 
-    vfNote.setKeyStyle(0, {shadowBlur:15, shadowColor:'blue', fillStyle:'blue'});
+    vfNote.setStyle({shadowBlur:0, shadowColor:'blue', fillStyle:'blue', strokeStyle:'blue'});
     vfNote.draw();
   };
 }
@@ -280,7 +296,7 @@ Vex.Flow.DocumentFormatter.prototype.colorNoteAt = function(key) {
 
 try
 {
-  vfNote.setKeyStyle(0, {shadowBlur:15, shadowColor:'blue', fillStyle:'blue'});
+  vfNote.setKeyStyle(0, {shadowBlur:0, shadowColor:'blue', fillStyle:'blue'});
   vfNote.draw();
 
 }catch(err)
@@ -513,6 +529,7 @@ Vex.Flow.DocumentFormatter.Liquid.prototype.getBlock = function(b) {
   if (startMeasure >= numMeasures) return null;
 
   // Update modifiers for first measure
+  var staveIndex = 0;
   this.document.getMeasure(startMeasure).getStaves().forEach(function(s) {
     if (typeof s.clef == "string" && ! s.getModifier("clef")) {
       s.addModifier({type: "clef", clef: s.clef, automatic: true});
@@ -521,12 +538,15 @@ Vex.Flow.DocumentFormatter.Liquid.prototype.getBlock = function(b) {
       s.addModifier({type: "key", key: s.key, automatic: true});
     }
     // Time signature on first measure of piece only
-    if (startMeasure == 0 && ! s.getModifier("time")) {
+    if (startMeasure == 0 && ! s.getModifier("time") && staveIndex==0) {
       if (typeof s.time_signature == "string")
         s.addModifier({type: "time", time: s.time_signature,automatic:true});
       else if (typeof s.time == "object"/** && ! s.time.soft**/)
         s.addModifier(Vex.Merge({type: "time", automatic: true}, s.time));
+
+      s.addModifier({type:"tempo", tempo:{name:"test", duration: "q", dots: 1, bpm: 80 }});
     }
+    staveIndex++;
   });
   
   // Store x, width of staves (y calculated automatically)
@@ -598,7 +618,7 @@ Vex.Flow.DocumentFormatter.Liquid.prototype.getBlock = function(b) {
   }
   var height = this.getStaveY(startMeasure, i-1);
   // Add max extra space for last stave on any measure in this block
-  var maxExtraHeight = 90; // default: height of stave
+  var maxExtraHeight = 110; // default: height of stave
   for (var i = startMeasure; i <= endMeasure; i++) {
     var minHeights = this.getMinMeasureHeight(i);
     var extraHeight = minHeights[minHeights.length - 1];

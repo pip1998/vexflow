@@ -35,7 +35,7 @@ Vex.Flow.Backend.MusicXML.appearsValid = function(data) {
          (data.documentElement.nodeName == 'score-partwise');
 }
 
-Vex.Flow.Backend.MusicXML.prototype.parse = function(data) {
+Vex.Flow.Backend.MusicXML.prototype.parse = function(data, options) {
   if (typeof data == "string") {
     // Parse XML string
     if (window.DOMParser && typeof XMLDocument != "undefined") {
@@ -63,6 +63,7 @@ Vex.Flow.Backend.MusicXML.prototype.parse = function(data) {
 
   // Go through each part, pushing the measures on the correct sub-array
   var partNum = 0;
+  var measure_index = 0;
   Array.prototype.forEach.call(this.documentElement.childNodes, function(node){
     if (node.nodeName == "part-list") this.parsePartList(node);
     else if (node.nodeName == "part") {
@@ -70,8 +71,15 @@ Vex.Flow.Backend.MusicXML.prototype.parse = function(data) {
       for (var j = 0; j < node.childNodes.length; j++) {
         var measure = node.childNodes[j];
         if (measure.nodeName != "measure") continue;
-        if (! (measureNum in this.measures))
-          this.measures[measureNum] = new Array();
+        if (! (measureNum in this.measures)){
+          if (options) {
+            if (measure_index<options.length && measure_index++ >= options.start) {
+              this.measures[measureNum] = new Array();
+            };
+          }else{
+            this.measures[measureNum] = new Array();
+          }
+        }
         if (this.measures[measureNum].length != partNum) {
           // Some part is missing a measure
           Vex.LogFatal("Part missing measure");
@@ -162,7 +170,7 @@ Vex.Flow.Backend.MusicXML.prototype.getMeasureNumber = function(m) {
 Vex.Flow.Backend.MusicXML.prototype.getMeasure = function(m) {
   var measure_attrs = this.getAttributes(m, 0);
   var time = measure_attrs.time;
-  var measure = new Vex.Flow.Measure({time: time});
+  var measure = new Vex.Flow.Measure({time: time, divisions: measure_attrs.divisions});
   var numParts = this.measures[m].length;
   measure.setNumberOfParts(numParts);
   for (var p = 0; p < numParts; p++) {
@@ -176,6 +184,27 @@ Vex.Flow.Backend.MusicXML.prototype.getMeasure = function(m) {
     if (attrs.clef instanceof Array)
       for (var s = 0; s < this.numStaves[p]; s++)
         part.setStave(s, {clef: attrs.clef[s]});
+    //速度
+    var directionElems = this.measures[m][p].getElementsByTagName("direction");
+    if (directionElems[0]) {
+      var directionTypeElems  = null;
+      for (var i = 0; i < directionElems.length; i++) {
+        directionTypeElems = directionElems[i].getElementsByTagName("direction-type");
+        if (directionTypeElems[0]) {
+          for (var j = directionTypeElems.length - 1; j >= 0; j--) {
+              var metronome = directionTypeElems[j].getElementsByTagName("metronome")[0];
+              if (metronome) {
+                  //单位
+                  measure.beat_unit = metronome.getAttribute("beat-unit");
+                  //速度值
+                  measure.per_minute = metronome.getAttribute("per-minute");
+                break;
+              };
+          };
+        };
+        directionTypeElems = null;
+      };
+    };
     var numVoices = 1; // can expand dynamically
     var noteElems = this.measures[m][p].getElementsByTagName("note");
     var voiceObjects = new Array(); // array of arrays
@@ -283,8 +312,17 @@ Vex.Flow.Backend.MusicXML.prototype.parseAttributes =
   return attrObject;
 }
 
+Vex.Flow.Backend.MusicXML.prototype.get_nextsibling = function(n){
+  var x=n.nextSibling;
+  while (x && x.nodeType!=1)
+   {
+   x=x.nextSibling;
+   }
+  return x;
+}
+
 Vex.Flow.Backend.MusicXML.prototype.parseNote = function(noteElem, attrs) {
-  var noteObj = {rest: false, chord: false};
+  var noteObj = {rest: false, chord: false, fingering:0, staccato:0};
   noteObj.tickMultiplier = new Vex.Flow.Fraction(1, 1);
   noteObj.tuplet = null;
   Array.prototype.forEach.call(noteElem.childNodes, function(elem) {
@@ -394,6 +432,39 @@ Vex.Flow.Backend.MusicXML.prototype.parseNote = function(noteElem, attrs) {
                 default: Vex.RERR("BadMusicXML", "Bad tie: " + tie.toString());
               }
               break;
+            case "slur":
+              var slu = notationElem.getAttribute("type");
+              switch (slu) {
+                  case "start":
+                  noteObj.tie = (noteObj.tie == "end") ? "continue" : "begin";
+                  break;
+                case "stop":
+                  noteObj.tie = (noteObj.tie == "begin") ? "continue" : "end";
+                  break;
+                default: Vex.RERR("BadMusicXML", "Bad tie: " + tie.toString());
+
+              }
+              break;
+            case "technical":
+              var tech = notationElem.getElementsByTagName("technical")[0];
+              if (tech && !noteObj.rest) {
+                var fingering = tech.getAttributes("fingering");
+                if (fingering) {
+                  noteObj.fingering = parseInt(fingering);
+                };
+              };
+              break;
+            case "articulations":
+              var staccato = notationElem.getElementsByTagName("staccato")[0];
+              if (staccato) {
+                var options = 3;//3:above 4:below
+                var position = staccato.getAttributes["placement"];
+                if (position) {
+                  options = {"above":3,"below":4}[position];
+                };
+                noteObj.staccato = options;
+              };
+              break;
             // TODO: tuplet
           }
         });
@@ -411,6 +482,20 @@ Vex.Flow.Backend.MusicXML.prototype.parseNote = function(noteElem, attrs) {
       case "treble": default: noteObj.keys = ["B/4"]; break;
     }
   }
+  //fingering
+  if (noteObj.fingering==0 && !noteObj.rest) {
+    var direction = this.get_nextsibling(noteElem);
+    if (direction && direction.nodeName == "direction" && direction.getElementsByTagName("direction-type")) {
+      var directionType = direction.getElementsByTagName("direction-type")[0];
+      var words = directionType.getElementsByTagName("words");
+      if (words) {
+        words = words[0];
+        noteObj.fingering = parseInt(words.textContent);
+      };
+    };
+
+  };
+
   return noteObj;
 }
 

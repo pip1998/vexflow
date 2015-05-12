@@ -400,6 +400,15 @@ Vex.Flow.StaveNote = (function() {
       return { x: this.getAbsoluteX() + x, y: this.ys[index] };
     },
 
+              // Sets the style of the complete StaveNote, including all keys
+              // and the stem.
+              setStyle: function(style) {
+              this.note_heads.forEach(function(notehead) {
+                                      notehead.setStyle(style);
+                                      }, this);
+             this.stem.setStyle(style);
+              },
+
     // Sets the notehead at `index` to the provided coloring `style`.
     //
     // `style` is an `object` with the following properties: `shadowColor`,
@@ -595,7 +604,7 @@ Vex.Flow.StaveNote = (function() {
         var key_style = note_head.getStyle();
         if(key_style) {
             ctx.save();
-            note_head.applyKeyStyle(ctx);
+            note_head.applyStyle(ctx);
         }
         mod.setContext(ctx);
         mod.draw();
