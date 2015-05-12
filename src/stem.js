@@ -1,10 +1,10 @@
 // [VexFlow](http://vexflow.com) - Copyright (c) Mohit Muthanna 2010.
 //
 // ## Description
-// 
-// This file implements the `Stem` object. Generally this object is handled 
+//
+// This file implements the `Stem` object. Generally this object is handled
 // by its parent `StemmableNote`.
-// 
+//
 Vex.Flow.Stem = (function() {
   var Stem = function(options) {
     if (arguments.length > 0) this.init(options);
@@ -99,9 +99,24 @@ Vex.Flow.Stem = (function() {
           base_pixel = (base_pixel > ys[i]) ? base_pixel : ys[i];
         }
       }
-      
+
       return { topY: top_pixel, baseY: base_pixel };
     },
+    // set the draw style of a stem:
+    setStyle: function(style) { this.style = style; return this; },
+    getStyle: function() { return this.style; },
+
+    // Apply current style to Canvas `context`
+    applyStyle: function(context) {
+      var style = this.getStyle();
+      if(style) {
+        if (style.shadowColor) context.setShadowColor(style.shadowColor);
+        if (style.shadowBlur) context.setShadowBlur(style.shadowBlur);
+        if (style.strokeStyle) context.setStrokeStyle(style.strokeStyle);
+      }
+      return this;
+    },
+
     // set the draw style of a stem:
     setStyle: function(style) { this.style = style; return this; },
     getStyle: function() { return this.style; },
@@ -150,7 +165,7 @@ Vex.Flow.Stem = (function() {
       ctx.moveTo(stem_x, stem_y);
       ctx.lineTo(stem_x, stem_y - this.getHeight());
       ctx.stroke();
-      ctx.setLineWidth(1);
+      ctx.restore();
     }
   };
 
