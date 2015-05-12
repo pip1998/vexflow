@@ -200,7 +200,7 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-git');
 
   // Default task(s).
-  grunt.registerTask('default', ['jshint', 'concat', 'uglify', 'docco']);
+  grunt.registerTask('default', ['concat', 'uglify', 'docco']);
 
   grunt.registerTask('test', 'Run qunit tests.', function() {
     grunt.task.run('qunit');

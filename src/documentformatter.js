@@ -17,11 +17,11 @@ Vex.Flow.DocumentFormatter.prototype.init = function(document) {
   if (typeof document != "object")
     throw new Vex.RERR("ArgumentError",
       "new Vex.Flow.DocumentFormatter() requires Document object argument");
-    this.zoom = 0.8;
-  this.scale = 1.0;
-  if (typeof window.devicePixelRatio == "number"
-      && window.devicePixelRatio > 1)
-    this.scale = Math.floor(window.devicePixelRatio);
+
+
+
+
+
 
   this.document = document;
 
@@ -41,7 +41,7 @@ Vex.Flow.DocumentFormatter.prototype.init = function(document) {
   //  this.minMeasureHeights[m][0] is space above measure
   //  this.minMeasureHeights[m][s+1] is minimum height of stave s
   this.minMeasureHeights = [];
-
+  //保存的音符数据，用于测试
   this.flowNotes = [];
   this.flowMap = [];
 
@@ -113,8 +113,9 @@ Vex.Flow.DocumentFormatter.prototype.createVexflowStave = function(s, x,y,w) {
         vfStave.addTimeSignature(time_sig);
         break;
       case "tempo":
-        vfStave.setTempo(s.tempo);
+        vfStave.setTempo(mod.tempo, -8);
         break;
+
     }
   });
   if (typeof s.clef == "string") vfStave.clef = s.clef;
@@ -154,7 +155,9 @@ Vex.Flow.DocumentFormatter.prototype.getStave = function(m, s) {
  * @param {Array} Vex.Flow.Staves to add the notes to
  * @return {Array} Vex.Flow.Voice, objects to be drawn, optional voice w/lyrics
  */
-Vex.Flow.DocumentFormatter.prototype.getVexflowVoice =function(voice, staves){
+var tiedNote = null; // only last vFNote in tie
+var sluredNote = null;
+Vex.Flow.DocumentFormatter.prototype.getVexflowVoice =function(voice, staves, options){
   var vfVoice = new Vex.Flow.Voice({num_beats: voice.time.num_beats,
                                   beat_value: voice.time.beat_value,
                                   resolution: Vex.Flow.RESOLUTION});
@@ -166,16 +169,16 @@ Vex.Flow.DocumentFormatter.prototype.getVexflowVoice =function(voice, staves){
 
   var vexflowObjects = new Array();
   var beamedNotes = null; // array of all vfNotes in beam
-  var tiedNote = null; // only last vFNote in tie
+
   var tupletNotes = null, tupletOpts = null;
   var clef = staves[voice.stave].clef;
   var lyricVoice = null;
   for (var i = 0; i < voice.notes.length; i++) {
     var note = voice.notes[i];
     var vfNote = this.getVexflowNote(voice.notes[i], {clef: clef});
-    this.flowNotes.push(vfNote);
-    var key = "tag_" + vfNote.tag;
-    this.flowMap[key] = vfNote;
+
+
+
     if (note.beam == "begin") beamedNotes = [vfNote];
     else if (note.beam && beamedNotes) {
       beamedNotes.push(vfNote);
@@ -184,13 +187,56 @@ Vex.Flow.DocumentFormatter.prototype.getVexflowVoice =function(voice, staves){
         beamedNotes = null;
       }
     }
-    if (note.tie == "end" || note.tie == "continue")
-      // TODO: Tie only the correct indices
-      vexflowObjects.push(new Vex.Flow.StaveTie({
-        first_note: tiedNote, last_note: vfNote, first_indices: [2],
-    last_indices: [2]
-      }));
+      if (note.tie == "end" || note.tie == "continue"){
+//          vexflowObjects.push(new Vex.Flow.Curve(tiedNote, vfNote, {
+//                    cps: [{x: 0, y: 15}, {x: 0, y: 15}]
+//                    }));
+          // TODO: Tie only the correct indices
+          vexflowObjects.push(new Vex.Flow.StaveTie(
+                                                    {first_note: tiedNote, last_note: vfNote, first_indices: [0], last_indices: [0]
+                                                    }));
+          tiedNote = null;
+
+      }else if(options && i == voice.notes.length - 1 && tiedNote != null && options.system_end){//是一行末
+//          vexflowObjects.push(new Vex.Flow.StaveTie(
+//                                                    {first_note: tiedNote, last_note: null
+//                                                    }));
+//          vexflowObjects.push(new Vex.Flow.Curve(tiedNote, null, {
+//                                                 cps: [{x: 0, y: 15}, {x: 0, y: 15}]
+//                                                 }));
+
+          tiedNote = null;
+
+      }
     if (note.tie == "begin" || note.tie == "continue") tiedNote = vfNote;
+      if (note.slur == "end" || note.slur == "continue"){
+//          vexflowObjects.push(new Vex.Flow.TextNote({glyph: "p", duration: "16"}));
+          var curve = new Vex.Flow.Curve(sluredNote, vfNote, {
+                                        cps: [{x: 0, y: 10}, {x: 0, y: 10}],
+                                         y_shift:8
+                                        });
+          vexflowObjects.push(curve);
+          // TODO: Tie only the correct indices
+//                    vexflowObjects.push(new Vex.Flow.StaveTie(
+//                                                              {first_note: sluredNote, last_note: vfNote, first_indices: [0], last_indices: [0]
+//                                                              }));
+          sluredNote = null;
+          
+      }else if(options && i == voice.notes.length - 1 && sluredNote != null && options.system_end){//是一行末
+//                    vexflowObjects.push(new Vex.Flow.StaveTie(
+//                                                              {first_note: sluredNote, last_note: null
+//                                                              }));
+          var curve = new Vex.Flow.Curve(sluredNote, null, {
+                                         cps: [{x: 0, y: 10}, {x: 0, y: 10}],
+                                         y_shift:8
+                                         });
+          vexflowObjects.push(curve);
+          
+          sluredNote = null;
+          
+      }
+      if (note.slur == "begin" || note.slur == "continue") sluredNote = vfNote;
+
     if (note.tuplet) {
       if (tupletNotes) tupletNotes.push(vfNote);
       else {
@@ -203,7 +249,13 @@ Vex.Flow.DocumentFormatter.prototype.getVexflowVoice =function(voice, staves){
         tupletNotes = null; tupletOpts = null;
       }
     }
-    else vfVoice.addTickable(vfNote);
+    else {
+        vfVoice.addTickable(vfNote);
+    }
+      this.flowNotes.push(vfNote);
+      var key = "tag_" + vfNote.tag;
+      this.flowMap[key] = vfNote;
+
     if (note.lyric) {
       if (! lyricVoice) {
         lyricVoice = new Vex.Flow.Voice(vfVoice.time);
@@ -248,63 +300,104 @@ Vex.Flow.DocumentFormatter.prototype.getVexflowNote = function(note, options) {
     });
   var numDots = Vex.Flow.parseNoteDurationString(note.duration).dots;
   for (var i = 0; i < numDots; i++) vfNote.addDotToAll();
-    vfNote.tag = note.tag;
-  vfNote.prefingering = note.fingering;
-
-            // document.write(JSON.stringify(note));
-  // vfNote.addAnnotation(0, new Vex.Flow.Annotation("1").setJustification(1).setVerticalJustification(1));
-  // if (note.fingering != 0 && !note.rest) {
-  //     vfNote.addModifier(0, new Vex.Flow.Annotation(note.fingering).setJustification(2).setVerticalJustification(1));
-  // };
+  vfNote.tag = note.tag;
+  vfNote.fingering = note.fingering;
+    if (note.fingering != 0 && !note.reset) {
+        vfNote.addModifier(0, new Vex.Flow.Annotation(note.fingering).setJustification(1).setVerticalJustification(1));
+    };
+    if(note.staccato > 0){
+        vfNote.addArticulation(0, new Vex.Flow.Articulation("a.").setPosition(note.staccato));
+    }
+//transparent
+    var color = 'transparent';
+    vfNote.setStyle({shadowBlur:0, shadowColor:color, fillStyle:color, strokeStyle:color});
   return vfNote;
 }
 
-// Vex.Flow.DocumentFormatter.prototype.colorNote = function() {
-//   this.flowNotes.forEach(function(vfNote)
-//     {
-//       if (!vfNote.context) return;
-//       if (!vfNote.stave) return;
-//       if (vfNote.ys.length === 0) return;
-
-//       vfNote.setKeyStyle(0, {shadowBlur:15, shadowColor:'blue', fillStyle:'blue'});
-//       vfNote.draw();
-//     });
-// }
+Vex.Flow.DocumentFormatter.prototype.blackNote = function() {
+    this.colorNote('black');
 
 
-Vex.Flow.DocumentFormatter.prototype.colorNote = function() {
-  var count = this.flowNotes.length;
-  for (var i = this.flowNotes.length - 1; i >= 0; i--) {
-        vfNote = this.flowNotes[i];
-
-      if (!vfNote.context) break;
-      if (!vfNote.stave) break;
-      if (vfNote.ys.length === 0) break;
-
-    vfNote.setStyle({shadowBlur:0, shadowColor:'blue', fillStyle:'blue', strokeStyle:'blue'});
-    vfNote.draw();
-  };
-}
 
 
-Vex.Flow.DocumentFormatter.prototype.colorNoteAt = function(key) {
-  var vfNote = this.flowMap[key];
-  if (!vfNote) {return;};
-  if (!vfNote.context) return;
-  if (!vfNote.stave) return;
-  if (vfNote.ys.length === 0) return;
 
-try
-{
-  vfNote.setKeyStyle(0, {shadowBlur:0, shadowColor:'blue', fillStyle:'blue'});
-  vfNote.draw();
 
-}catch(err)
-{
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 }
 
+Vex.Flow.DocumentFormatter.prototype.colorNote = function(color) {
+    this.flowNotes.forEach(function(vfNote)
+                           {
+                           if (!vfNote.context) return;
+                           if (!vfNote.stave) return;
+                           if (vfNote.ys.length === 0) return;
+                           try
+                           {
+                           vfNote.setStyle({shadowBlur:0, shadowColor:color, fillStyle:color, strokeStyle:color});
+                           vfNote.draw();
 
+                           }catch(err)
+                           {
+                           
+                           }
+                           });
+
+}
+
+Vex.Flow.DocumentFormatter.prototype.colorNoteAt = function(key, color) {
+    var vfNote = this.flowMap[key];
+    if (!vfNote) {return;};
+    if (!vfNote.context) return;
+    if (!vfNote.stave) return;
+    if (vfNote.ys.length === 0) return;
+    try
+    {
+        //blockDimensions
+        var b = vfNote.getStave().block;
+        var blockBottom = 0;
+        var blockTop = 0;
+        var extraMargin = 30;
+        for(var i = 0;i<=b;i++){
+            blockBottom+= Math.ceil(this.blockDimensions[i][1] * this.zoom) * (this.scale>1?1:this.scale);
+            if(i<b){
+                blockTop+= Math.ceil(this.blockDimensions[i][1] * this.zoom) * (this.scale>1?1:this.scale);
+            }
+        }
+        blockBottom+= Math.ceil(extraMargin * this.zoom) * (this.scale>1?1:this.scale);
+        var currentY = document.body.scrollTop + document.body.clientHeight;
+//        document.location = "jslog:" + "zoom:" + this.zoom + "scale:" + this.scale;
+
+//        document.location = "jslog:" + "currentY:" + currentY + "blockBottom:" + blockBottom + "zoom:" + this.zoom + "scale:" + this.scale;
+        if(currentY < blockBottom){
+            window.scrollTo(0,blockBottom - document.body.clientHeight);
+        }else if(document.body.scrollTop>blockTop){
+            window.scrollTo(0,blockTop);
+        }
+        vfNote.setStyle({shadowBlur:0, shadowColor:color, fillStyle:color, strokeStyle:color});
+        vfNote.draw();
+
+    }catch(err)
+    {
+//        document.location = "jslog:" + "err:" + err;
+    }
+    
+    
 }
 
 
@@ -350,7 +443,7 @@ Vex.Flow.DocumentFormatter.prototype.getMinMeasureWidth = function(m) {
       if (numTickables > maxTickables) maxTickables = numTickables;
     });
     this.minMeasureWidths[m] = Vex.Max(50,
-             maxExtraWidth + noteWidth + maxTickables*10 + 10);
+             maxExtraWidth + noteWidth + maxTickables*10 + 10 + 50);
 
     // Calculate minMeasureHeight by merging bounding boxes from each voice
     // and the bounding box from the stave
@@ -361,7 +454,7 @@ Vex.Flow.DocumentFormatter.prototype.getMinMeasureWidth = function(m) {
     var i=-1; // allVfVoices consecutive by stave, increment for each new stave
     var lastStave = null;
     var staveY = vfStaves[0].getYForLine(0);
-    var staveH = vfStaves[0].getYForLine(4) - staveY;
+    var staveH = vfStaves[0].getYForLine(4) - staveY + 40;
     var lastBoundingBox = null;
     allVfVoices.forEach(function(v) {
       if (v.stave !== lastStave) {
@@ -391,15 +484,15 @@ Vex.Flow.DocumentFormatter.prototype.getMinMeasureHeight = function(m) {
 
 // Internal drawing functions
 Vex.Flow.DocumentFormatter.prototype.drawPart =
-  function(part, vfStaves, context) {
+  function(part, vfStaves, context, b, options) {
   var staves = part.getStaves();
   var voices = part.getVoices();
-  vfStaves.forEach(function(stave) { stave.setContext(context).draw(); });
+      vfStaves.forEach(function(stave) {stave.block=b; stave.setContext(context).draw(); });
 
   var allVfObjects = new Array();
   var vfVoices = new Array();
   voices.forEach(function(voice) {
-    var result = this.getVexflowVoice(voice, vfStaves);
+    var result = this.getVexflowVoice(voice, vfStaves, options);
     Array.prototype.push.apply(allVfObjects, result[1]);
     var vfVoice = result[0];
     var lyricVoice = result[2];
@@ -424,13 +517,13 @@ Vex.Flow.DocumentFormatter.prototype.drawPart =
 
 // Options contains system_start, system_end for measure
 Vex.Flow.DocumentFormatter.prototype.drawMeasure =
-  function(measure, vfStaves, context, options) {
+  function(measure, vfStaves, context, options, block) {
   var startStave = 0;
   var parts = measure.getParts();
   parts.forEach(function(part) {
     var numStaves = part.getNumberOfStaves();
     var partStaves = vfStaves.slice(startStave, startStave + numStaves);
-    this.drawPart(part, partStaves, context);
+    this.drawPart(part, partStaves, context, block, options);
     startStave += numStaves;
   }, this);
 
@@ -481,7 +574,8 @@ Vex.Flow.DocumentFormatter.prototype.drawBlock = function(b, context) {
     while (this.getStave(m, stave)) stave++;
     this.drawMeasure(this.document.getMeasure(m), this.vfStaves[m], context,
                      {system_start: m == measures[0],
-                      system_end: m == measures[measures.length - 1]});
+                      system_end: m == measures[measures.length - 1],
+                     block:b}, b);
   }, this);
 }
 
@@ -529,8 +623,10 @@ Vex.Flow.DocumentFormatter.Liquid.prototype.getBlock = function(b) {
   if (startMeasure >= numMeasures) return null;
 
   // Update modifiers for first measure
-  var staveIndex = 0;
+    var doc = this.document;
+    var staveIndex = 0;
   this.document.getMeasure(startMeasure).getStaves().forEach(function(s) {
+                                                         
     if (typeof s.clef == "string" && ! s.getModifier("clef")) {
       s.addModifier({type: "clef", clef: s.clef, automatic: true});
     }
@@ -538,15 +634,27 @@ Vex.Flow.DocumentFormatter.Liquid.prototype.getBlock = function(b) {
       s.addModifier({type: "key", key: s.key, automatic: true});
     }
     // Time signature on first measure of piece only
-    if (startMeasure == 0 && ! s.getModifier("time") && staveIndex==0) {
+    if (startMeasure == 0 && ! s.getModifier("time")) {
       if (typeof s.time_signature == "string")
         s.addModifier({type: "time", time: s.time_signature,automatic:true});
       else if (typeof s.time == "object"/** && ! s.time.soft**/)
         s.addModifier(Vex.Merge({type: "time", automatic: true}, s.time));
+//    s.addModifier({type:"tempo", tempo:{name:"test", duration:"q", dots:1, bpm:80}});
+                                                             if(staveIndex++==0){
+                                                             var measure_first = doc.getMeasure(startMeasure);
+                                                             var bpm = measure_first.per_minute;
+                                                             var unit = measure_first.beat_unit;
+                                                             var du = {
+                                                             "1":"o" , "2": "h", "4": "q", "8": "8", "16": 16,
+                                                             "32": 32, "64": 64, "128": 128, "256": 256
+                                                             }[unit+""] + "";
+                                                             if(bpm>0){
+                                                             s.addModifier({type:"tempo",automatic: false, tempo:{duration:du, dots:0, bpm:bpm}});
+                                                             }
 
-      s.addModifier({type:"tempo", tempo:{name:"test", duration: "q", dots: 1, bpm: 80 }});
+                                                             }
+
     }
-    staveIndex++;
   });
   
   // Store x, width of staves (y calculated automatically)
@@ -618,7 +726,7 @@ Vex.Flow.DocumentFormatter.Liquid.prototype.getBlock = function(b) {
   }
   var height = this.getStaveY(startMeasure, i-1);
   // Add max extra space for last stave on any measure in this block
-  var maxExtraHeight = 110; // default: height of stave
+  var maxExtraHeight = 90; // default: height of stave
   for (var i = startMeasure; i <= endMeasure; i++) {
     var minHeights = this.getMinMeasureHeight(i);
     var extraHeight = minHeights[minHeights.length - 1];
@@ -643,7 +751,7 @@ Vex.Flow.DocumentFormatter.Liquid.prototype.getStaveWidth = function(m, s) {
                 "Creating stave for measure which does not belong to a block");
   return this.measureWidth[m];
 }
-
+var renderWidth = 0;
 Vex.Flow.DocumentFormatter.Liquid.prototype.draw = function(elem, options) {
   if (this._htmlElem != elem) {
     this._htmlElem = elem;
@@ -651,7 +759,7 @@ Vex.Flow.DocumentFormatter.Liquid.prototype.draw = function(elem, options) {
     this.canvases = [];
   }
   var canvasWidth = $(elem).width() - 10; // TODO: remove jQuery dependency
-  var renderWidth = Math.floor(canvasWidth / this.zoom);
+  renderWidth = Math.floor(canvasWidth / this.zoom);
   // Invalidate all blocks/staves/voices
   this.minMeasureWidths = []; // heights don't change with stave modifiers
   this.measuresInBlock = [];
@@ -708,13 +816,13 @@ Vex.Flow.DocumentFormatter.Liquid.prototype.draw = function(elem, options) {
     context.scale(this.zoom * this.scale, this.zoom * this.scale);
     this.drawBlock(b, context);
     // Add anchor elements before canvas
-    var lineAnchor = document.createElement("a");
+    var lineAnchor = document.createElement("div");
     lineAnchor.id = elem.id + "_line" + (b+1).toString();
     elem.insertBefore(lineAnchor, canvas);
     this.measuresInBlock[b].forEach(function(m) {
       var anchor = elem.id + "_m" +
                    this.document.getMeasureNumber(m).toString();
-      var anchorElem = document.createElement("a");
+      var anchorElem = document.createElement("div");
       anchorElem.id = anchor;
       elem.insertBefore(anchorElem, canvas);
     }, this);
@@ -726,6 +834,6 @@ Vex.Flow.DocumentFormatter.Liquid.prototype.draw = function(elem, options) {
     delete this.canvases[b];
     b++;
   }
+    this.blackNote();
 }
-
 

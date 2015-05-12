@@ -117,21 +117,6 @@ Vex.Flow.Stem = (function() {
       return this;
     },
 
-    // set the draw style of a stem:
-    setStyle: function(style) { this.style = style; return this; },
-    getStyle: function() { return this.style; },
-
-    // Apply current style to Canvas `context`
-    applyStyle: function(context) {
-      var style = this.getStyle();
-      if(style) {
-        if (style.shadowColor) context.setShadowColor(style.shadowColor);
-        if (style.shadowBlur) context.setShadowBlur(style.shadowBlur);
-        if (style.strokeStyle) context.setStrokeStyle(style.strokeStyle);
-      }
-      return this;
-    },
-
     // Render the stem onto the canvas
     draw: function() {
       if (!this.context) throw new Vex.RERR("NoCanvasContext",

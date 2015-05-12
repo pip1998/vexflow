@@ -23,17 +23,18 @@ Vex.Flow.Measure = function(object) {
     for (var i = 0; i < object.parts.length; i++)
       this.parts[i] = new Vex.Flow.Measure.Part(object.parts[i]);
   }
+    if (object.beat_unit && object.per_minute && object.measure_tempo) {
+        this.beat_unit = object.beat_unit;
+        this.per_minute = object.per_minute;
+        this.measure_tempo = object.measure_tempo;
+    }else{
+        this.beat_unit = 4;
+        this.per_minute = 120;
+        this.measure_tempo = 120;
+        
+    }
 
-  if (object.beat_unit && object.per_minute && measure_tempo) {
-    this.beat_unit = object.beat_unit;
-    this.per_minute = object.per_minute;
-    this.measure_tempo = object.measure_tempo;
-  }else{
-    this.beat_unit = 4;
-    this.per_minute = 120;
-    this.measure_tempo = 120;
-
-  }
+    
   this.type = "measure";
 }
 
@@ -354,15 +355,15 @@ Vex.Flow.Measure.Stave.prototype.addModifier = function(modifier) {
       newModifier.num_beats = modifier.num_beats;
       newModifier.beat_value = modifier.beat_value;
       break;
-    case "tempo":
-      if (!modifier.tempo)
-        throw new Vex.RERR("InvalidIRError",
-                    "Time modifier requires nonzero tempo");
-      newModifier.tempo = modifier.tempo;
-      newModifier.duration = modifier.tempo.duration;
-      newModifier.dots = modifier.tempo.dots;
-      newModifier.bpm = modifier.tempo.bpm;
-      break;
+      case "tempo":
+          if (!modifier.tempo)
+              throw new Vex.RERR("InvalidIRError",
+                                 "Time modifier requires nonzero tempo");
+          newModifier.tempo = modifier.tempo;
+          break;
+
+
+
     default:
       throw new Vex.RERR("InvalidIRError", "Modifier not recognized");
   }
@@ -452,11 +453,14 @@ Vex.Flow.Measure.Note = function(object) {
             ? object.beam : null;
   this.tie = (typeof object.tie == "string")
            ? object.tie : null;
+  this.slur = (typeof object.slur == "string")
+    ? object.slur : null;
   this.lyric = (typeof object.lyric == "object" && object.lyric)
              ? {text: object.lyric.text}
              : null;
-  this.tag = object.tag;
-  this.fingering = object.fingering;
+    this.tag = object.tag;
+    this.fingering = object.fingering;
+    this.staccato = object.staccato;
   this.type = "note";
 }
 

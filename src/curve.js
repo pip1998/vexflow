@@ -114,19 +114,33 @@ Vex.Flow.Curve = (function() {
         first_x = first_note.getTieRightX();
         stem_direction = first_note.getStemDirection();
         first_y = first_note.getStemExtents()[metric];
+                  if(first_y>first_note.getStave().getYForLine(0) && first_y<first_note.getStave().getBottomY()){
+                  first_y = stem_direction==1?first_note.getStave().getBottomY():first_note.getStave().getYForLine(0);
+                  }
+
       } else {
-        first_x = last_note.getStave().getTieStartX();
+        first_x = 10;
         first_y = last_note.getStemExtents()[metric];
+                  if(first_y>last_note.getStave().getYForLine(0) && first_y<last_note.getStave().getBottomY()){
+                  first_y = stem_direction==1?last_note.getStave().getBottomY():last_note.getStave().getYForLine(0);
+                  }
       }
 
       if (last_note) {
         last_x = last_note.getTieLeftX();
         stem_direction = last_note.getStemDirection();
-        last_y = last_note.getStemExtents()[end_metric];
-        first_y = last_y;
+                  last_y = last_note.getStemExtents()[end_metric];
+                  if(last_y>last_note.getStave().getYForLine(0) && last_y<last_note.getStave().getBottomY()){
+                  last_y = stem_direction==1?last_note.getStave().getBottomY():last_note.getStave().getYForLine(0);
+                  }
+                  if(Math.abs(first_y - last_y)>last_note.getStave().getHeight()/4)
+                  first_y = last_y;
       } else {
-        last_x = first_note.getStave().getTieEndX();
+        last_x = renderWidth - 10;
         last_y = first_note.getStemExtents()[end_metric];
+                  if(last_y>first_note.getStave().getYForLine(0) && last_y<first_note.getStave().getBottomY()){
+                  last_y = stem_direction==1?first_note.getStave().getBottomY():first_note.getStave().getYForLine(0);
+                  }
       }
 
       this.renderCurve({
